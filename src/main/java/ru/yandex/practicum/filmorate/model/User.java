@@ -7,19 +7,17 @@ import lombok.NonNull;
 import java.time.LocalDate;
 
 /**
- * Film.
+ * User.
  */
 @Data
 @Builder
-public class Film {
+public class User {
     @Builder.Default
     private int id = 0;
+    private String email;
     @NonNull
+    private String login;
     private String name;
     @NonNull
-    private String description;
-    @NonNull
-    private LocalDate releaseDate;
-    @NonNull
-    private Integer duration;
+    private LocalDate birthday;
 }
