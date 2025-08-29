@@ -1,13 +1,19 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
-import ru.yandex.practicum.filmorate.exceptions.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,6 +21,14 @@ public class FilmControllerTest {
     private final FilmController filmController = new FilmController();
     private Film film;
     private Film anotherFilm;
+
+    private static Validator validator;
+
+    @BeforeAll
+    static void beforeAll() {
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        validator = factory.getValidator();
+    }
 
     @BeforeEach
     void beforeEach() {
@@ -26,12 +40,14 @@ public class FilmControllerTest {
                 .build();
     }
 
-    @Test // Проверка возвращения пустого списка фильмов
+    @Test
+        // Проверка возвращения пустого списка фильмов
     void shouldGetEmptyFilmList() {
         assertTrue(filmController.getFilms().isEmpty(), "Список фильмов должен быть пуст");
     }
 
-    @Test // Проверка добавления корректного фильма
+    @Test
+        // Проверка добавления корректного фильма
     void shouldAddCorrectFilm() {
         Film receivedFilm = filmController.addFilm(film);
 
@@ -42,7 +58,8 @@ public class FilmControllerTest {
         assertEquals(film.getDuration(), receivedFilm.getDuration(), "Длительность отличается");
     }
 
-    @Test // Проверка добавления фильма с описанием, длина которого составляет 200 символов
+    @Test
+        // Проверка добавления фильма с описанием, длина которого составляет 200 символов
     void shouldAddFilmWithLongDescription() {
         String description = "OK".repeat(100);
         film.setDescription(description);
@@ -50,7 +67,8 @@ public class FilmControllerTest {
         assertEquals(description, receivedFilm.getDescription(), "Описания не совпадают");
     }
 
-    @Test // Проверка получения списка с одним фильмом
+    @Test
+        // Проверка получения списка с одним фильмом
     void shouldGetFilm() {
         filmController.addFilm(film);
         Collection<Film> films = filmController.getFilms();
@@ -60,7 +78,8 @@ public class FilmControllerTest {
         assertTrue(films.contains(film), "В коллекции нет нужного фильма");
     }
 
-    @Test // Проверка получения списка с несколькими фильмами
+    @Test
+        // Проверка получения списка с несколькими фильмами
     void shouldGetFilms() {
         anotherFilm = Film.builder()
                 .name("Чужой 2")
@@ -80,145 +99,164 @@ public class FilmControllerTest {
         assertTrue(films.contains(anotherFilm), "В коллекции нет нужного фильма");
     }
 
-    @Test // Проверка невозможности создания фильма без названия
+    @Test
+        // Проверка невозможности создания фильма без названия
     void shouldNotCreateFilmWithoutName() {
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () -> film = Film.builder()
-                        .description("Фантастика, Ужасы")
-                        .releaseDate(LocalDate.of(1979, 6, 22))
-                        .duration(116)
-                        .build(),
-                "Исключение при попытке создать фильм без названия"
-        );
+        film = Film.builder()
+                .description("Фантастика, Ужасы")
+                .releaseDate(LocalDate.of(1979, 6, 22))
+                .duration(116)
+                .build();
 
-        assertEquals("name is marked non-null but is null", exception.getMessage());
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Название фильма не может быть пустым.")));
     }
 
-    @Test // Проверка выбрасывания исключения при попытке добавить фильм с пустым названием
+    @Test
+        // Проверка выбрасывания исключения при попытке добавить фильм с пустым названием
     void shouldNotAddFilmWithBlankName() {
         film.setName("");
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.addFilm(film),
-                "Исключение при попытке добавить фильм без названия"
-        );
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
-        assertEquals("Название фильма не может быть пустым.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Название фильма не может быть пустым.")));
     }
 
-    @Test // Проверка невозможности создания фильма без описания
+    @Test
+        // Проверка невозможности создания фильма без описания
     void shouldNotAddFilmWithoutDescription() {
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () -> film = Film.builder()
-                        .name("Чужой")
-                        .releaseDate(LocalDate.of(1979, 6, 22))
-                        .duration(116)
-                        .build(),
-                "Исключение при попытке создать фильм без описания"
-        );
+        film = Film.builder()
+                .name("Чужой")
+                .releaseDate(LocalDate.of(1979, 6, 22))
+                .duration(116)
+                .build();
 
-        assertEquals("description is marked non-null but is null", exception.getMessage());
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Описание фильма не может быть пустым.")));
     }
 
-    @Test // Проверка выбрасывания исключения при попытке добавить фильм с пустым описанием
+    @Test
+        // Проверка выбрасывания исключения при попытке добавить фильм с пустым описанием
     void shouldNotAddFilmWithBlankDescription() {
         film.setDescription("");
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.addFilm(film),
-                "Исключение при попытке добавить фильм без описания"
-        );
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
-        assertEquals("Описание фильма не может быть пустым.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Описание фильма не может быть пустым.")));
     }
 
-    @Test // Проверка выбрасывания исключения при попытке добавить фильм со слишком длинным описанием
+    @Test
+        // Проверка выбрасывания исключения при попытке добавить фильм со слишком длинным описанием
     void shouldNotAddFilmWithTooLongDescription() {
         film.setDescription("OK".repeat(100) + ".");
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.addFilm(film),
-                "Исключение при попытке добавить фильм со слишком длинным описанием"
-        );
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
-        assertEquals("Максимальная длина описания — 200 символов.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Максимальная длина описания фильма — 200 символов.")));
     }
 
-    @Test // Проверка невозможности создания фильма без даты релиза
+    @Test
+        // Проверка невозможности создания фильма без даты релиза
     void shouldNotCreateFilmWithoutReleaseDate() {
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () -> film = Film.builder()
-                        .name("Чужой")
-                        .description("Фантастика, Ужасы")
-                        .duration(116)
-                        .build(),
-                "Исключение при попытке создать фильм без даты релиза"
-        );
+        film = Film.builder()
+                .name("Чужой")
+                .description("Фантастика, Ужасы")
+                .duration(116)
+                .build();
 
-        assertEquals("releaseDate is marked non-null but is null", exception.getMessage());
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Дата релиза не может быть пустой.")));
     }
 
-    @Test // Проверка выбрасывания исключения при попытке добавить фильм с датой релиза раньше 28 декабря 1895 года
+    @Test
+        // Проверка выбрасывания исключения при попытке добавить фильм с датой релиза раньше 28 декабря 1895 года
     void shouldNotAddFilmWithIncorrectReleaseDate() {
         film.setReleaseDate(LocalDate.of(1895, 12, 27));
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.addFilm(film),
-                "Исключение при попытке добавить фильм с датой релиза раньше 28 декабря 1895 года"
-        );
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
-        assertEquals("Дата релиза — не раньше 28 декабря 1895 года.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Дата релиза — не раньше 28 декабря 1895 года.")));
     }
 
-    @Test // Проверка невозможности создания фильма без длительности
+    @Test
+        // Проверка невозможности создания фильма без длительности
     void shouldNotCreateFilmWithoutDuration() {
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () -> Film.builder()
-                        .name("Чужой")
-                        .description("Фантастика, Ужасы")
-                        .releaseDate(LocalDate.of(1979, 6, 22))
-                        .build(),
-                "Исключение при попытке создать фильм без длительности"
-        );
+        film = Film.builder()
+                .name("Чужой")
+                .description("Фантастика, Ужасы")
+                .releaseDate(LocalDate.of(1979, 6, 22))
+                .build();
 
-        assertEquals("duration is marked non-null but is null", exception.getMessage());
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Продолжительность фильма не может быть пустой.")));
     }
 
-    @Test // Проверка выбрасывания исключения при попытке добавить фильм с нулевой длительностью
+    @Test
+        // Проверка выбрасывания исключения при попытке добавить фильм с нулевой длительностью
     void shouldNotAddFilmWithZeroDuration() {
         film.setDuration(0);
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.addFilm(film),
-                "Исключение при попытке добавить фильм с нулевой длительностью"
-        );
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
-        assertEquals("Продолжительность фильма должна быть положительным числом.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Продолжительность фильма должна быть положительным числом.")));
     }
 
-    @Test // Проверка выбрасывания исключения при попытке добавить фильм с отрицательной длительностью
+    @Test
+        // Проверка выбрасывания исключения при попытке добавить фильм с отрицательной длительностью
     void shouldNotAddFilmWithNegativeDuration() {
         film.setDuration(-1);
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.addFilm(film),
-                "Исключение при попытке добавить фильм с отрицательной длительностью"
-        );
+        Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
-        assertEquals("Продолжительность фильма должна быть положительным числом.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Продолжительность фильма должна быть положительным числом.")));
     }
 
-    @Test // Проверка корректности обновления фильма
+    @Test
+        // Проверка корректности обновления фильма
     void shouldUpdateFilm() {
         filmController.addFilm(film);
 
@@ -234,7 +272,8 @@ public class FilmControllerTest {
         assertEquals(anotherFilm, updatedFilm, "Фильм не обновился");
     }
 
-    @Test // Проверка обновления фильма на фильм с описанием, длина которого составляет 200 символов
+    @Test
+        // Проверка обновления фильма на фильм с описанием, длина которого составляет 200 символов
     void shouldUpdateFilmWithLongDescription() {
         filmController.addFilm(film);
 
@@ -250,7 +289,8 @@ public class FilmControllerTest {
         assertEquals(anotherFilm, updatedFilm, "Фильм не обновился");
     }
 
-    @Test // Проверка выбрасывания исключения при попытке обновить несуществующий фильм
+    @Test
+        // Проверка выбрасывания исключения при попытке обновить несуществующий фильм
     void shouldNotUpdateNonExistentFilm() {
         filmController.addFilm(film);
 
@@ -270,131 +310,4 @@ public class FilmControllerTest {
 
         assertEquals("Фильм с id = " + anotherFilm.getId() + "не найден.", exception.getMessage());
     }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить фильм на фильм без названия
-    void shouldNotUpdateIfNameIsEmpty() {
-        filmController.addFilm(film);
-
-        anotherFilm = Film.builder()
-                .id(film.getId())
-                .name("")
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(137)
-                .build();
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.updateFilm(anotherFilm),
-                "Исключение при попытке обновить фильм: название фильма пустое."
-        );
-
-        assertEquals("Название фильма не может быть пустым.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить фильм на фильм без описания
-    void shouldNotUpdateIfDescriptionIsEmpty() {
-        filmController.addFilm(film);
-
-        anotherFilm = Film.builder()
-                .id(film.getId())
-                .name("Чужой")
-                .description("")
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(137)
-                .build();
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.updateFilm(anotherFilm),
-                "Исключение при попытке обновить фильм: описание фильма пустое."
-        );
-
-        assertEquals("Описание фильма не может быть пустым.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить фильм на фильм со слишком длинным описанием
-    void shouldNotUpdateIfDescriptionIsTooLong() {
-        filmController.addFilm(film);
-
-        anotherFilm = Film.builder()
-                .id(film.getId())
-                .name("Чужой")
-                .description("ОК".repeat(100) + ".")
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(137)
-                .build();
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.updateFilm(anotherFilm),
-                "Исключение при попытке обновить фильм: описание фильма слишком длинное."
-        );
-
-        assertEquals("Максимальная длина описания — 200 символов.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить фильм на фильм с некорректной датой релиза
-    void shouldNotUpdateIfReleaseDateIsIncorrect() {
-        filmController.addFilm(film);
-
-        anotherFilm = Film.builder()
-                .id(film.getId())
-                .name("Чужой")
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1895, 12, 27))
-                .duration(137)
-                .build();
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.updateFilm(anotherFilm),
-                "Исключение при попытке обновить фильм: некорректная дата релиза."
-        );
-
-        assertEquals("Дата релиза — не раньше 28 декабря 1895 года.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить фильм на фильм с нулевой длительностью
-    void shouldNotUpdateIfDurationIsZero() {
-        filmController.addFilm(film);
-
-        anotherFilm = Film.builder()
-                .id(film.getId())
-                .name("Чужой 2")
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(0)
-                .build();
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.updateFilm(anotherFilm),
-                "Исключение при попытке обновить фильм: некорректная длительность."
-        );
-
-        assertEquals("Продолжительность фильма должна быть положительным числом.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить фильм на фильм с отрицательной длительностью
-    void shouldNotUpdateIfDurationIsNegative() {
-        filmController.addFilm(film);
-
-        anotherFilm = Film.builder()
-                .id(film.getId())
-                .name("Чужой 2")
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(-1)
-                .build();
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> filmController.updateFilm(anotherFilm),
-                "Исключение при попытке обновить фильм: некорректная длительность."
-        );
-
-        assertEquals("Продолжительность фильма должна быть положительным числом.", exception.getMessage());
-    }
-
 }

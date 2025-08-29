@@ -1,5 +1,10 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
@@ -8,6 +13,7 @@ import ru.yandex.practicum.filmorate.model.User;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,6 +21,14 @@ public class UserControllerTest {
     private final UserController userController = new UserController();
     private User user;
     private User anotherUser;
+
+    private static Validator validator;
+
+    @BeforeAll
+    static void beforeAll() {
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        validator = factory.getValidator();
+    }
 
     @BeforeEach
     void beforeEach() {
@@ -85,110 +99,114 @@ public class UserControllerTest {
 
     @Test // Проверка выбрасывания исключения при попытке создать пользователя без логина
     void shouldNotCreateUserWithoutLogin() {
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () ->  user = User.builder()
-                        .email("abc@gmail.com")
-                        .name("")
-                        .birthday(LocalDate.of(1997, 8, 14))
-                        .build(),
-                "Исключение при попытке создать пользователя без логина"
-        );
+        user = User.builder()
+                .email("abc@gmail.com")
+                .name("")
+                .birthday(LocalDate.of(1997, 8, 14))
+                .build();
 
-        assertEquals("login is marked non-null but is null", exception.getMessage());
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Логин не может быть пустым.")));
     }
 
     @Test // Проверка выбрасывания исключения при попытке добавить пользователя с пустым логином
     void shouldNotAddUserWithEmptyLogin() {
         user.setLogin("");
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () ->  userController.addUser(user),
-                "Исключение при попытке создать пользователя без логина"
-        );
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
 
-        assertEquals("Логин не может быть пустым или содержать пробелы.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Логин не может быть пустым.")));
     }
 
     @Test // Проверка выбрасывания исключения при попытке добавить пользователя с логином, содержащим пробелы
     void shouldNotAddUserWithIncorrectLogin() {
         user.setLogin("a dmi n");
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () ->  userController.addUser(user),
-                "Исключение при попытке создать пользователя c некорректным логином"
-        );
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
 
-        assertEquals("Логин не может быть пустым или содержать пробелы.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Логин не должен содержать пробелы.")));
     }
 
     @Test // Проверка выбрасывания исключения при попытке добавить пользователя без электронной почты
     void shouldNotAddUserWithoutEmail() {
         user.setEmail(null);
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () ->  userController.addUser(user),
-                "Исключение при попытке создать пользователя без электронной почты"
-        );
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
 
-        assertEquals("Электронная почта не может быть пустой.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Электронная почта не может быть пустой.")));
     }
 
     @Test // Проверка выбрасывания исключения при попытке добавить пользователя с пустой электронной почтой
     void shouldNotAddUserWithEmptyEmail() {
         user.setEmail("");
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () ->  userController.addUser(user),
-                "Исключение при попытке создать пользователя без электронной почты"
-        );
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
 
-        assertEquals("Электронная почта не может быть пустой.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Электронная почта не может быть пустой.")));
     }
 
     @Test // Проверка выбрасывания исключения при попытке добавить пользователя с некорректной электронной почтой
     void shouldNotAddUserWithIncorrectEmail() {
         user.setEmail("abcgmail.com");
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () ->  userController.addUser(user),
-                "Исключение при попытке создать пользователя c электронной почтой без @"
-        );
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
 
-        assertEquals("Электронная почта должна содержать символ @.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Электронная почта должна содержать символ @.")));
     }
 
     @Test // Проверка выбрасывания исключения при попытке создать пользователя без дня рождения
     void shouldNotCreateUserWithoutBirthday() {
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () ->  user = User.builder()
-                        .email("abc@gmail.com")
-                        .login("Admin")
-                        .name("")
-                        .build(),
-                "Исключение при попытке создать пользователя без дня рождения"
-        );
+        user = User.builder()
+                .email("abc@gmail.com")
+                .login("Admin")
+                .name("")
+                .build();
 
-        assertEquals("birthday is marked non-null but is null", exception.getMessage());
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Дата рождения не может быть пустой.")));
     }
 
     @Test// Проверка выбрасывания исключения при попытке создать пользователя с днем рождения в будущем
     void shouldNotAddUserWithIncorrectBirthday() {
         user.setBirthday(LocalDate.of(2077,12,12));
 
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () ->  userController.addUser(user),
-                "Исключение при попытке добавить пользователя c днем рождения в будущем"
-        );
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
 
-        assertEquals("Дата рождения не может быть в будущем.", exception.getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations
+                .stream()
+                .anyMatch(v -> v.getMessage()
+                        .equals("Дата рождения не может быть в будущем.")));
     }
 
     @Test // Проверка обновления пользователя без заданного имени
@@ -256,48 +274,6 @@ public class UserControllerTest {
         assertEquals("Пользователь с id = " + anotherUser.getId() + " не найден.", exception.getMessage());
     }
 
-    @Test // Проверка выбрасывания исключения при попытке обновить пользователя с пустой электронной почтой
-    void shouldNotUpdateUserWithBlankEmail() {
-        userController.addUser(user);
-
-        anotherUser = User.builder()
-                .id(user.getId())
-                .email("")
-                .login("Mod")
-                .name("James")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
-
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> userController.updateUser(anotherUser),
-                "Исключение при попытке обновить пользователя с пустой электронной почтой"
-        );
-        assertEquals("Электронная почта не может быть пустой.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить пользователя с некорректной электронной почтой
-    void shouldNotUpdateUserWithIncorrectEmail() {
-        userController.addUser(user);
-
-        anotherUser = User.builder()
-                .id(user.getId())
-                .email("fbcgmail.com")
-                .login("Mod")
-                .name("James")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
-
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> userController.updateUser(anotherUser),
-                "Исключение при попытке обновить пользователя с некорректной электронной почтой"
-        );
-        assertEquals("Электронная почта должна содержать символ @.", exception.getMessage());
-    }
-
     @Test // Проверка выбрасывания исключения при попытке обновить пользователя с используемой электронной почтой
     void shouldNotUpdateUserWithIntersectEmail() {
         userController.addUser(user);
@@ -326,68 +302,5 @@ public class UserControllerTest {
                 "Исключение при попытке обновить пользователя с использованной электронной почтой"
         );
         assertEquals("Эта электронная почта уже используется.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить пользователя с пустым логином
-    void shouldNotUpdateUserWithBlankLogin() {
-        userController.addUser(user);
-
-        anotherUser = User.builder()
-                .id(user.getId())
-                .email("abc@gmail.com")
-                .login("")
-                .name("James")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
-
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> userController.updateUser(anotherUser),
-                "Исключение при попытке обновить пользователя с пустым логином"
-        );
-        assertEquals("Логин не может быть пустым или содержать пробелы.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить пользователя с некорректным логином
-    void shouldNotUpdateUserWithIncorrectLogin() {
-        userController.addUser(user);
-
-        anotherUser = User.builder()
-                .id(user.getId())
-                .email("abc@gmail.com")
-                .login("A d min")
-                .name("James")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
-
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> userController.updateUser(anotherUser),
-                "Исключение при попытке обновить пользователя с некорректным логином"
-        );
-        assertEquals("Логин не может быть пустым или содержать пробелы.", exception.getMessage());
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке обновить пользователя с некорректным днем рождения
-    void shouldNotUpdateUserWithIncorrectBirthday() {
-        userController.addUser(user);
-
-        anotherUser = User.builder()
-                .id(user.getId())
-                .email("abc@gmail.com")
-                .login("Admin")
-                .name("James")
-                .birthday(LocalDate.of(2026, 8, 14))
-                .build();
-
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> userController.updateUser(anotherUser),
-                "Исключение при попытке обновить пользователя с некорректным днем рождения"
-        );
-        assertEquals("Дата рождения не может быть в будущем.", exception.getMessage());
     }
 }
