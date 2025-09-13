@@ -43,7 +43,7 @@ public class ErrorHandler {
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleError(final Throwable e) {
-        return new ErrorResponse (
+        return new ErrorResponse(
                 "Возникло исключение."
         );
     }
