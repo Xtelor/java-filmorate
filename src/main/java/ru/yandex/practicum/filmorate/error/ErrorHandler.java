@@ -1,5 +1,7 @@
 package ru.yandex.practicum.filmorate.error;
 
+import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -40,11 +42,28 @@ public class ErrorHandler {
         return new ErrorResponse(message.toString().trim());
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleConstraintViolationException(final ConstraintViolationException e) {
+        StringBuilder message = new StringBuilder("Ошибка валидации: ");
+        e.getConstraintViolations().forEach(error ->
+                message.append(error.getPropertyPath().toString())
+                        .append(" - ")
+                        .append(error.getMessage())
+                        .append("; ")
+        );
+        return new ErrorResponse(message.toString().trim());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleDataIntegrityViolation(final DataIntegrityViolationException e) {
+        return new ErrorResponse("Ошибка целостности данных: " + e.getMessage());
+    }
+
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleError(final Throwable e) {
-        return new ErrorResponse(
-                "Возникло исключение."
-        );
+        return new ErrorResponse("Произошла непредвиденная ошибка сервера.");
     }
 }

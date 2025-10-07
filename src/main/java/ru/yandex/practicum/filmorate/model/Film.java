@@ -4,7 +4,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -15,7 +15,14 @@ import java.util.Set;
 @EqualsAndHashCode(of = {"id"})
 public class Film {
     // Лайки фильма
-    private Set<Integer> likes;
+    @Builder.Default
+    private Set<Integer> likes = new LinkedHashSet<>();
+    // Жанры фильма
+    @Builder.Default
+    private Set<Genre> genres = new LinkedHashSet<>();
+    // Рейтинг MPA фильма
+    @NotNull
+    private Rating rating;
 
     // ID фильма
     @Builder.Default
@@ -45,16 +52,6 @@ public class Film {
         if (releaseDate == null) {
             return true;
         }
-
         return releaseDate.isAfter(LocalDate.of(1895, 12, 28));
-    }
-
-    // Получение списка лайков фильма
-    public Set<Integer> getLikes() {
-        if (this.likes == null) {
-            this.likes = new HashSet<>();
-        }
-
-        return this.likes;
     }
 }
