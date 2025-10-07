@@ -1,22 +1,15 @@
-package ru.yandex.practicum.filmorate.model;
+package ru.yandex.practicum.filmorate.dto.user;
 
 import jakarta.validation.constraints.*;
-import lombok.*;
-
+import lombok.Data;
 import java.time.LocalDate;
 
-/**
- * User.
- */
 @Data
-@Builder
-@EqualsAndHashCode(of = {"id"})
-@NoArgsConstructor
-@AllArgsConstructor
-public class User {
+public class UpdateUserRequest {
     // ID пользователя
-    @Builder.Default
-    private int id = 0;
+    @NotNull(message = "ID не может быть пустым.")
+    @Positive(message = "ID не может быть отрицательным.")
+    private Integer id;
 
     // Электронная почта пользователя
     @NotBlank(message = "Электронная почта не может быть пустой.")

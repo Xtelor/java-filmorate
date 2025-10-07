@@ -1,26 +1,27 @@
 package ru.yandex.practicum.filmorate.service;
 
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.model.User;
-
+import ru.yandex.practicum.filmorate.dto.user.NewUserRequest;
+import ru.yandex.practicum.filmorate.dto.user.UpdateUserRequest;
+import ru.yandex.practicum.filmorate.dto.user.UserDto;
 import java.util.List;
 
 @Service
 public interface UserService {
     // Добавление пользователя
-    User add(User user);
+    UserDto add(NewUserRequest request);
 
     // Получение списка всех пользователей
-    List<User> getAll();
+    List<UserDto> getAll();
 
     // Получение пользователя по ID
-    User get(int id);
+    UserDto get(int id);
 
     // Обновление пользователя
-    User update(User newUser);
+    UserDto update(UpdateUserRequest request);
 
     // Удаление пользователя по ID
-    User delete(int id);
+    void delete(int id);
 
     // Удаление всех пользователей
     void deleteAll();
@@ -32,8 +33,8 @@ public interface UserService {
     void deleteFriend(int id, int friendId);
 
     // Получение списка друзей пользователей
-    List<User> getFriends(int id);
+    List<UserDto> getFriends(int id);
 
     // Получение списка общих друзей двух пользователей
-    List<User> getMutualFriends(int id, int otherId);
+    List<UserDto> getMutualFriends(int id, int otherId);
 }

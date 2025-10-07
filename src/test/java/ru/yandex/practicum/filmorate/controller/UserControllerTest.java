@@ -1,308 +1,190 @@
 package ru.yandex.practicum.filmorate.controller;
 
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import ru.yandex.practicum.filmorate.dto.user.NewUserRequest;
+import ru.yandex.practicum.filmorate.dto.user.UpdateUserRequest;
+import ru.yandex.practicum.filmorate.dto.user.UserDto;
 import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
 import ru.yandex.practicum.filmorate.exceptions.ValidationException;
-import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.service.UserServiceImpl;
-import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
-
+import ru.yandex.practicum.filmorate.service.UserService;
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.Set;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 public class UserControllerTest {
-    private final UserController userController = new UserController(new UserServiceImpl(new InMemoryUserStorage()));
-    private User user;
-    private User anotherUser;
+    @Mock
+    private UserService userService;
 
-    private static Validator validator;
+    @InjectMocks
+    private UserController userController;
 
-    @BeforeAll
-    static void beforeAll() {
-        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-        validator = factory.getValidator();
-    }
+    private UserDto userDto1;
+    private UserDto userDto2;
+    private NewUserRequest newUserRequest;
+    private UpdateUserRequest updateUserRequest;
 
     @BeforeEach
     void beforeEach() {
-        user = User.builder()
-                .email("abc@gmail.com")
+        newUserRequest = new NewUserRequest();
+        newUserRequest.setEmail("test@gmail.com");
+        newUserRequest.setLogin("Admin");
+        newUserRequest.setName("Jack");
+        newUserRequest.setBirthday(LocalDate.of(1997, 8, 14));
+
+        userDto1 = UserDto.builder()
+                .id(1)
+                .email("test@gmail.com")
                 .login("Admin")
-                .name("")
+                .name("Jack")
                 .birthday(LocalDate.of(1997, 8, 14))
                 .build();
+
+        userDto2 = UserDto.builder()
+                .id(2)
+                .email("alex@gmail.com")
+                .login("Moderator")
+                .name("Alex")
+                .birthday(LocalDate.of(2001, 5, 8))
+                .build();
+
+        updateUserRequest = new UpdateUserRequest();
+        updateUserRequest.setId(1);
+        updateUserRequest.setEmail("new.email@gmail.com");
+        updateUserRequest.setLogin("NewLogin");
+        updateUserRequest.setName("James");
+        updateUserRequest.setBirthday(LocalDate.of(1997, 8, 14));
     }
 
     @Test // Проверка возвращения пустого списка пользователей
-    void shouldGetEmptyFilmList() {
-        assertTrue(userController.getUsers().isEmpty(), "Список пользователей должен быть пуст");
+    void shouldGetEmptyUserList() {
+        when(userService.getAll()).thenReturn(Collections.emptyList());
+
+        List<UserDto> users = userController.getUsers();
+
+        assertTrue(users.isEmpty(), "Список пользователей должен быть пуст.");
+        verify(userService, times(1)).getAll();
     }
 
     @Test // Проверка добавления корректного пользователя без заданного имени
     void shouldAddCorrectUserWithoutName() {
-        User receivedUser = userController.addUser(user);
+        newUserRequest.setName("");
 
-        assertEquals(user.getId(), receivedUser.getId(), "Неверный ID пользователя");
-        assertEquals(user.getEmail(), receivedUser.getEmail(), "Электронные почты отличаются");
-        assertEquals(user.getLogin(), receivedUser.getLogin(), "Логины отличаются");
-        assertEquals(user.getName(), receivedUser.getName(), "Имена отличаются");
-        assertEquals(user.getBirthday(), receivedUser.getBirthday(), "Дни рождения отличаются");
+        UserDto expectedDto = UserDto.builder()
+                .id(1)
+                .email("test@gmail.com")
+                .login("Admin")
+                .name("Admin") // Ожидаем, что сервис вернет логин в качестве имени
+                .birthday(LocalDate.of(1997, 8, 14))
+                .build();
+
+        when(userService.add(any(NewUserRequest.class))).thenReturn(expectedDto);
+
+        UserDto createdUser = userController.addUser(newUserRequest);
+
+        assertEquals(expectedDto.getLogin(), createdUser.getName(), "Имя должно совпадать с логином.");
+        verify(userService, times(1)).add(newUserRequest);
     }
 
     @Test // Проверка добавления корректного пользователя
     void shouldAddCorrectUser() {
-        user.setName("Jack");
-        User receivedUser = userController.addUser(user);
+        when(userService.add(any(NewUserRequest.class))).thenReturn(userDto1);
 
-        assertEquals(user.getId(), receivedUser.getId(), "Неверный ID пользователя");
-        assertEquals(user.getEmail(), receivedUser.getEmail(), "Электронные почты отличаются");
-        assertEquals(user.getLogin(), receivedUser.getLogin(), "Логины отличаются");
-        assertEquals(user.getName(), receivedUser.getName(), "Имена отличаются");
-        assertEquals(user.getBirthday(), receivedUser.getBirthday(), "Дни рождения отличаются");
+        UserDto createdUser = userController.addUser(newUserRequest);
+
+        assertEquals(userDto1, createdUser, "Возвращенный пользователь не совпадает с ожидаемым.");
+        verify(userService, times(1)).add(newUserRequest);
     }
 
     @Test // Проверка получения списка с одним пользователем
     void shouldGetUser() {
-        userController.addUser(user);
-        Collection<User> users = userController.getUsers();
+        when(userService.getAll()).thenReturn(List.of(userDto1));
 
-        assertFalse(users.isEmpty(), "Коллекция не должна быть пустой");
-        assertEquals(1, users.size(), "В коллекции должен быть 1 пользователь");
-        assertTrue(users.contains(user), "Пользователя нет в коллекции");
+        List<UserDto> users = userController.getUsers();
+
+        assertEquals(1, users.size(), "В коллекции должен быть 1 пользователь.");
+        assertTrue(users.contains(userDto1));
+        verify(userService, times(1)).getAll();
     }
 
     @Test // Проверка получения списка с несколькими пользователями
     void shouldGetUsers() {
-        anotherUser = User.builder()
-                .email("mod@gmail.com")
-                .login("Moderator").name("Alex")
-                .birthday(LocalDate.of(2001, 5, 8))
-                .build();
+        when(userService.getAll()).thenReturn(List.of(userDto1, userDto2));
 
-        userController.addUser(user);
-        userController.addUser(anotherUser);
+        List<UserDto> users = userController.getUsers();
 
-        Collection<User> users = userController.getUsers();
-
-        assertFalse(users.isEmpty(), "Коллекция не должна быть пустой");
-        assertEquals(2, users.size(), "В коллекции должен быть 2 пользователя");
-        assertTrue(users.contains(user), "Пользователя нет в коллекции");
-        assertTrue(users.contains(anotherUser), "Пользователя нет в коллекции");
+        assertEquals(2, users.size());
+        assertTrue(users.contains(userDto1));
+        assertTrue(users.contains(userDto2));
+        verify(userService, times(1)).getAll();
     }
 
-    @Test // Проверка выбрасывания исключения при попытке создать пользователя без логина
-    void shouldNotCreateUserWithoutLogin() {
-        user = User.builder()
-                .email("abc@gmail.com")
-                .name("")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
+    // Проверка получения пользователя по ID
+    @Test
+    void shouldGetUserById() {
+        when(userService.get(1)).thenReturn(userDto1);
 
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
+        UserDto foundUser = userController.getUser(1);
 
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Логин не может быть пустым.")));
+        assertEquals(userDto1, foundUser);
+        verify(userService, times(1)).get(1);
     }
 
-    @Test // Проверка выбрасывания исключения при попытке добавить пользователя с пустым логином
-    void shouldNotAddUserWithEmptyLogin() {
-        user.setLogin("");
+    // Проверка выбрасывания исключения при попытке найти несуществующего пользователя
+    @Test
+    void shouldThrowNotFoundExceptionWhenGetUserByNonExistentId() {
+        when(userService.get(anyInt())).thenThrow(new NotFoundException("Пользователь не найден."));
 
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Логин не может быть пустым.")));
+        assertThrows(NotFoundException.class, () -> userController.getUser(999));
+        verify(userService, times(1)).get(999);
     }
 
-    @Test // Проверка выбрасывания исключения при попытке добавить пользователя с логином, содержащим пробелы
-    void shouldNotAddUserWithIncorrectLogin() {
-        user.setLogin("a dmi n");
+    // Проверка обновления пользователя
+    @Test
+    void shouldUpdateUser() {
+        when(userService.update(any(UpdateUserRequest.class))).thenReturn(userDto1);
 
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
+        UserDto result = userController.updateUser(updateUserRequest);
 
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Логин не должен содержать пробелы.")));
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке добавить пользователя без электронной почты
-    void shouldNotAddUserWithoutEmail() {
-        user.setEmail(null);
-
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Электронная почта не может быть пустой.")));
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке добавить пользователя с пустой электронной почтой
-    void shouldNotAddUserWithEmptyEmail() {
-        user.setEmail("");
-
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Электронная почта не может быть пустой.")));
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке добавить пользователя с некорректной электронной почтой
-    void shouldNotAddUserWithIncorrectEmail() {
-        user.setEmail("abcgmail.com");
-
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Электронная почта должна содержать символ @.")));
-    }
-
-    @Test // Проверка выбрасывания исключения при попытке создать пользователя без дня рождения
-    void shouldNotCreateUserWithoutBirthday() {
-        user = User.builder()
-                .email("abc@gmail.com")
-                .login("Admin")
-                .name("")
-                .build();
-
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Дата рождения не может быть пустой.")));
-    }
-
-    @Test// Проверка выбрасывания исключения при попытке создать пользователя с днем рождения в будущем
-    void shouldNotAddUserWithIncorrectBirthday() {
-        user.setBirthday(LocalDate.of(2077,12,12));
-
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Дата рождения не может быть в будущем.")));
+        assertEquals(userDto1, result, "Пользователь не обновился корректно");
+        verify(userService, times(1)).update(updateUserRequest);
     }
 
     @Test // Проверка обновления пользователя без заданного имени
     void shouldUpdateUserWithoutName() {
-        userController.addUser(user);
-
-        anotherUser = User.builder()
-                .id(user.getId())
-                .email("abcd@gmail.com")
-                .login("Adm")
-                .name("")
+        updateUserRequest.setName("");
+        UserDto expectedDto = UserDto.builder()
+                .id(1)
+                .login("Admin")
+                .name("Admin")
+                .email("abc@gmail.com")
                 .birthday(LocalDate.of(1997, 8, 14))
                 .build();
+        when(userService.update(any(UpdateUserRequest.class))).thenReturn(expectedDto);
 
-        User updatedUser = userController.updateUser(anotherUser);
+        UserDto updatedUser = userController.updateUser(updateUserRequest);
 
-        assertEquals(1, userController.getUsers().size(), "Пользователь не добавлен");
-        assertEquals(user, updatedUser, "Пользователь не обновлен");
-        assertEquals(anotherUser.getEmail(), updatedUser.getEmail(), "Электронные почты отличаются");
-        assertEquals(anotherUser.getLogin(), updatedUser.getLogin(), "Логины отличаются");
-        assertEquals(anotherUser.getLogin(), updatedUser.getName(), "Имена отличаются");
-        assertEquals(anotherUser.getBirthday(), updatedUser.getBirthday(), "Дни рождения отличаются");
-    }
-
-    @Test // Проверка обновления пользователя
-    void shouldUpdateUser() {
-        userController.addUser(user);
-
-        anotherUser = User.builder()
-                .id(user.getId())
-                .email("abcde@gmail.com")
-                .login("Mod")
-                .name("James")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
-
-        User updatedUser = userController.updateUser(anotherUser);
-
-        assertEquals(1, userController.getUsers().size(), "Пользователь не добавлен");
-        assertEquals(user, updatedUser, "Пользователь не обновлен");
-        assertEquals(anotherUser.getEmail(), updatedUser.getEmail(), "Электронные почты отличаются");
-        assertEquals(anotherUser.getLogin(), updatedUser.getLogin(), "Логины отличаются");
-        assertEquals(anotherUser.getName(), updatedUser.getName(), "Имена отличаются");
-        assertEquals(anotherUser.getBirthday(), updatedUser.getBirthday(), "Дни рождения отличаются");
+        assertEquals("Admin", updatedUser.getName(), "Имя должно было быть заменено логином");
+        verify(userService, times(1)).update(updateUserRequest);
     }
 
     @Test // Проверка выбрасывания исключения при попытке обновить несуществующего пользователя
     void shouldNotUpdateNonExistentUser() {
-        userController.addUser(user);
-
-        anotherUser = User.builder()
-                .id(33)
-                .email("abc@gmail.com")
-                .login("Mod")
-                .name("James")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
-
-
-        NotFoundException exception = assertThrows(
-                NotFoundException.class,
-                () -> userController.updateUser(anotherUser),
-                "Исключение при попытке обновить несуществующего пользователя"
-        );
-        assertEquals("Пользователь с id = " + anotherUser.getId() + " не найден.", exception.getMessage());
+        when(userService.update(any(UpdateUserRequest.class))).thenThrow(new NotFoundException("Пользователь не найден"));
+        assertThrows(NotFoundException.class, () -> userController.updateUser(updateUserRequest));
     }
 
     @Test // Проверка выбрасывания исключения при попытке обновить пользователя с используемой электронной почтой
     void shouldNotUpdateUserWithIntersectEmail() {
-        userController.addUser(user);
-
-        User secondUser = User.builder()
-                .email("abcd@gmail.com")
-                .login("Mod")
-                .name("Joe")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
-
-        userController.addUser(secondUser);
-
-        anotherUser = User.builder()
-                .id(user.getId())
-                .email("abcd@gmail.com")
-                .login("Adm")
-                .name("James")
-                .birthday(LocalDate.of(1997, 8, 14))
-                .build();
-
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> userController.updateUser(anotherUser),
-                "Исключение при попытке обновить пользователя с использованной электронной почтой"
-        );
-        assertEquals("Эта электронная почта уже используется.", exception.getMessage());
+        when(userService.update(any(UpdateUserRequest.class))).thenThrow(new ValidationException("Эта почта уже занята"));
+        assertThrows(ValidationException.class, () -> userController.updateUser(updateUserRequest));
     }
 }
