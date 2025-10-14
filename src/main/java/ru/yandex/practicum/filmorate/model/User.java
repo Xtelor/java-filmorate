@@ -4,8 +4,6 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * User.
@@ -13,10 +11,9 @@ import java.util.Set;
 @Data
 @Builder
 @EqualsAndHashCode(of = {"id"})
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
-    // Список друзей пользователя
-    private Set<Integer> friends;
-
     // ID пользователя
     @Builder.Default
     private int id = 0;
@@ -38,13 +35,4 @@ public class User {
     @NotNull(message = "Дата рождения не может быть пустой.")
     @PastOrPresent(message = "Дата рождения не может быть в будущем.")
     private LocalDate birthday;
-
-    // Получение списка ID друзей пользователя
-    public Set<Integer> getFriends() {
-        if (this.friends == null) {
-            this.friends = new HashSet<>();
-        }
-
-        return this.friends;
-    }
 }

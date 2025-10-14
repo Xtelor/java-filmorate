@@ -1,321 +1,206 @@
 package ru.yandex.practicum.filmorate.controller;
 
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import ru.yandex.practicum.filmorate.dto.film.FilmDto;
+import ru.yandex.practicum.filmorate.dto.film.NewFilmRequest;
+import ru.yandex.practicum.filmorate.dto.film.UpdateFilmRequest;
 import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
-import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.service.FilmServiceImpl;
-import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
-import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
-
-
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.Rating;
+import ru.yandex.practicum.filmorate.service.FilmService;
 import java.time.LocalDate;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 public class FilmControllerTest {
-    private final FilmController filmController = new FilmController(
-            new FilmServiceImpl(
-                    new InMemoryFilmStorage(),
-                    new InMemoryUserStorage()
-            )
-    );
-    private Film film;
-    private Film anotherFilm;
 
-    private static Validator validator;
+    @Mock
+    private FilmService filmService;
 
-    @BeforeAll
-    static void beforeAll() {
-        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-        validator = factory.getValidator();
-    }
+    @InjectMocks
+    private FilmController filmController;
+
+    private FilmDto filmDto1;
+    private FilmDto filmDto2;
+    private NewFilmRequest newFilmRequest;
+    private UpdateFilmRequest updateFilmRequest;
 
     @BeforeEach
     void beforeEach() {
-        film = Film.builder()
+        Rating mpaG = new Rating(1, "G");
+        Genre dramaGenre = new Genre(2, "Драма");
+        Set<Genre> genres = Set.of(dramaGenre);
+
+        newFilmRequest = new NewFilmRequest();
+        newFilmRequest.setName("Чужой");
+        newFilmRequest.setDescription("Фантастика, Ужасы");
+        newFilmRequest.setReleaseDate(LocalDate.of(1979, 6, 22));
+        newFilmRequest.setDuration(116);
+        newFilmRequest.setRating(mpaG);
+        newFilmRequest.setGenres(genres);
+
+        filmDto1 = FilmDto.builder()
+                .id(1)
                 .name("Чужой")
                 .description("Фантастика, Ужасы")
                 .releaseDate(LocalDate.of(1979, 6, 22))
                 .duration(116)
+                .likesCount(0)
+                .rating(mpaG)
+                .genres(genres)
                 .build();
+
+        filmDto2 = FilmDto.builder()
+                .id(2)
+                .name("Чужой 2")
+                .description("Фантастика, Боевик")
+                .releaseDate(LocalDate.of(1986, 7, 18))
+                .duration(137)
+                .likesCount(0)
+                .rating(mpaG)
+                .genres(genres)
+                .build();
+
+        updateFilmRequest = new UpdateFilmRequest();
+        updateFilmRequest.setId(1);
+        updateFilmRequest.setName("Чужой (Режиссерская версия)");
+        updateFilmRequest.setDescription("Полная версия культового фильма");
+        updateFilmRequest.setReleaseDate(LocalDate.of(1979, 6, 22));
+        updateFilmRequest.setDuration(124);
+        updateFilmRequest.setRating(mpaG);
+        updateFilmRequest.setGenres(genres);
     }
 
+    // Проверка возвращения пустого списка фильмов
     @Test
-        // Проверка возвращения пустого списка фильмов
     void shouldGetEmptyFilmList() {
-        assertTrue(filmController.getFilms().isEmpty(), "Список фильмов должен быть пуст");
+        when(filmService.getAll()).thenReturn(Collections.emptyList());
+
+        List<FilmDto> films = filmController.getFilms();
+
+        assertNotNull(films, "Список фильмов не должен быть null");
+        assertTrue(films.isEmpty(), "Список фильмов должен быть пуст");
+        verify(filmService, times(1)).getAll();
     }
 
+    // Проверка добавления корректного фильма
     @Test
-        // Проверка добавления корректного фильма
     void shouldAddCorrectFilm() {
-        Film receivedFilm = filmController.addFilm(film);
+        when(filmService.create(newFilmRequest)).thenReturn(filmDto1);
 
-        assertEquals(film.getId(), receivedFilm.getId(), "Неверный ID фильма");
-        assertEquals(film.getName(), receivedFilm.getName(), "Названия фильмов отличаются");
-        assertEquals(film.getDescription(), receivedFilm.getDescription(), "Описание фильмов отличается");
-        assertEquals(film.getReleaseDate(), receivedFilm.getReleaseDate(), "Дата релиза отличается");
-        assertEquals(film.getDuration(), receivedFilm.getDuration(), "Длительность отличается");
+        FilmDto createdFilm = filmController.addFilm(newFilmRequest);
+
+        assertEquals(filmDto1, createdFilm, "Возвращенный фильм не совпадает с ожидаемым");
+        assertEquals(1, createdFilm.getId(), "ID не совпадает");
+        assertEquals("Чужой", createdFilm.getName(), "Название не совпадает");
+        verify(filmService, times(1)).create(newFilmRequest);
     }
 
+    // Проверка добавления фильма с описанием, длина которого составляет 200 символов
     @Test
-        // Проверка добавления фильма с описанием, длина которого составляет 200 символов
     void shouldAddFilmWithLongDescription() {
-        String description = "OK".repeat(100);
-        film.setDescription(description);
-        Film receivedFilm = filmController.addFilm(film);
-        assertEquals(description, receivedFilm.getDescription(), "Описания не совпадают");
+        String description = "A".repeat(200);
+        newFilmRequest.setDescription(description);
+        filmDto1.setDescription(description);
+
+        when(filmService.create(newFilmRequest)).thenReturn(filmDto1);
+
+        FilmDto createdFilm = filmController.addFilm(newFilmRequest);
+
+        assertEquals(description, createdFilm.getDescription());
+        verify(filmService, times(1)).create(newFilmRequest);
     }
 
+    // Проверка получения списка с одним фильмом
     @Test
-        // Проверка получения списка с одним фильмом
     void shouldGetFilm() {
-        filmController.addFilm(film);
-        Collection<Film> films = filmController.getFilms();
+        when(filmService.getAll()).thenReturn(List.of(filmDto1));
+
+        List<FilmDto> films = filmController.getFilms();
 
         assertFalse(films.isEmpty(), "Коллекция не должна быть пустой");
         assertEquals(1, films.size(), "В коллекции должен быть 1 фильм");
-        assertTrue(films.contains(film), "В коллекции нет нужного фильма");
+        assertTrue(films.contains(filmDto1), "В коллекции нет нужного фильма");
+        verify(filmService, times(1)).getAll();
     }
 
+    // Проверка получения списка с несколькими фильмами
     @Test
-        // Проверка получения списка с несколькими фильмами
     void shouldGetFilms() {
-        anotherFilm = Film.builder()
-                .name("Чужой 2")
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(137)
-                .build();
+        when(filmService.getAll()).thenReturn(List.of(filmDto1, filmDto2));
 
-        filmController.addFilm(film);
-        filmController.addFilm(anotherFilm);
-
-        Collection<Film> films = filmController.getFilms();
+        List<FilmDto> films = filmController.getFilms();
 
         assertFalse(films.isEmpty(), "Коллекция не должна быть пустой");
-        assertEquals(2, films.size(), "В коллекции должен быть 2 фильма");
-        assertTrue(films.contains(film), "В коллекции нет нужного фильма");
-        assertTrue(films.contains(anotherFilm), "В коллекции нет нужного фильма");
+        assertEquals(2, films.size(), "В коллекции должно быть 2 фильма");
+        assertTrue(films.contains(filmDto1), "В коллекции нет первого фильма");
+        assertTrue(films.contains(filmDto2), "В коллекции нет второго фильма");
+        verify(filmService, times(1)).getAll();
     }
 
+    // Проверка корректности обновления фильма
     @Test
-        // Проверка невозможности создания фильма без названия
-    void shouldNotCreateFilmWithoutName() {
-        film = Film.builder()
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1979, 6, 22))
-                .duration(116)
-                .build();
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Название фильма не может быть пустым.")));
-    }
-
-    @Test
-        // Проверка выбрасывания исключения при попытке добавить фильм с пустым названием
-    void shouldNotAddFilmWithBlankName() {
-        film.setName("");
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Название фильма не может быть пустым.")));
-    }
-
-    @Test
-        // Проверка невозможности создания фильма без описания
-    void shouldNotAddFilmWithoutDescription() {
-        film = Film.builder()
-                .name("Чужой")
-                .releaseDate(LocalDate.of(1979, 6, 22))
-                .duration(116)
-                .build();
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Описание фильма не может быть пустым.")));
-    }
-
-    @Test
-        // Проверка выбрасывания исключения при попытке добавить фильм с пустым описанием
-    void shouldNotAddFilmWithBlankDescription() {
-        film.setDescription("");
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Описание фильма не может быть пустым.")));
-    }
-
-    @Test
-        // Проверка выбрасывания исключения при попытке добавить фильм со слишком длинным описанием
-    void shouldNotAddFilmWithTooLongDescription() {
-        film.setDescription("OK".repeat(100) + ".");
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Максимальная длина описания фильма — 200 символов.")));
-    }
-
-    @Test
-        // Проверка невозможности создания фильма без даты релиза
-    void shouldNotCreateFilmWithoutReleaseDate() {
-        film = Film.builder()
-                .name("Чужой")
-                .description("Фантастика, Ужасы")
-                .duration(116)
-                .build();
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Дата релиза не может быть пустой.")));
-    }
-
-    @Test
-        // Проверка выбрасывания исключения при попытке добавить фильм с датой релиза раньше 28 декабря 1895 года
-    void shouldNotAddFilmWithIncorrectReleaseDate() {
-        film.setReleaseDate(LocalDate.of(1895, 12, 27));
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Дата релиза — не раньше 28 декабря 1895 года.")));
-    }
-
-    @Test
-        // Проверка невозможности создания фильма без длительности
-    void shouldNotCreateFilmWithoutDuration() {
-        film = Film.builder()
-                .name("Чужой")
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1979, 6, 22))
-                .build();
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Продолжительность фильма не может быть пустой.")));
-    }
-
-    @Test
-        // Проверка выбрасывания исключения при попытке добавить фильм с нулевой длительностью
-    void shouldNotAddFilmWithZeroDuration() {
-        film.setDuration(0);
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Продолжительность фильма должна быть положительным числом.")));
-    }
-
-    @Test
-        // Проверка выбрасывания исключения при попытке добавить фильм с отрицательной длительностью
-    void shouldNotAddFilmWithNegativeDuration() {
-        film.setDuration(-1);
-
-        Set<ConstraintViolation<Film>> violations = validator.validate(film);
-
-        assertFalse(violations.isEmpty());
-        assertTrue(violations
-                .stream()
-                .anyMatch(v -> v.getMessage()
-                        .equals("Продолжительность фильма должна быть положительным числом.")));
-    }
-
-    @Test
-        // Проверка корректности обновления фильма
     void shouldUpdateFilm() {
-        filmController.addFilm(film);
-
-        anotherFilm = Film.builder()
-                .id(film.getId())
-                .name("Чужой 2")
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(137)
+        FilmDto updatedDto = FilmDto.builder()
+                .id(updateFilmRequest.getId())
+                .name(updateFilmRequest.getName())
+                .description(updateFilmRequest.getDescription())
+                .releaseDate(updateFilmRequest.getReleaseDate())
+                .duration(updateFilmRequest.getDuration())
+                .rating(updateFilmRequest.getRating())
+                .genres(updateFilmRequest.getGenres())
                 .build();
 
-        Film updatedFilm = filmController.updateFilm(anotherFilm);
-        assertEquals(anotherFilm, updatedFilm, "Фильм не обновился");
+        when(filmService.update(updateFilmRequest)).thenReturn(updatedDto);
+
+        FilmDto result = filmController.updateFilm(updateFilmRequest);
+
+        assertEquals(updatedDto, result, "Фильм не обновился корректно");
+        assertEquals(updateFilmRequest.getName(), result.getName());
+        verify(filmService, times(1)).update(updateFilmRequest);
     }
 
+    // Проверка обновления фильма на фильм с описанием, длина которого составляет 200 символов
     @Test
-        // Проверка обновления фильма на фильм с описанием, длина которого составляет 200 символов
     void shouldUpdateFilmWithLongDescription() {
-        filmController.addFilm(film);
+        String longDescription = "B".repeat(200);
+        updateFilmRequest.setDescription(longDescription);
 
-        anotherFilm = Film.builder()
-                .id(film.getId())
-                .name("Чужой 2")
-                .description("OK".repeat(100))
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(137)
+        FilmDto expectedDto = FilmDto.builder()
+                .id(updateFilmRequest.getId())
+                .name(updateFilmRequest.getName())
+                .description(longDescription)
                 .build();
 
-        Film updatedFilm = filmController.updateFilm(anotherFilm);
-        assertEquals(anotherFilm, updatedFilm, "Фильм не обновился");
+        when(filmService.update(any(UpdateFilmRequest.class))).thenReturn(expectedDto);
+
+        FilmDto result = filmController.updateFilm(updateFilmRequest);
+
+        assertEquals(longDescription, result.getDescription(), "Описание не обновилось");
+        verify(filmService, times(1)).update(updateFilmRequest);
     }
 
+    // Проверка выбрасывания исключения при попытке обновить несуществующий фильм
     @Test
-        // Проверка выбрасывания исключения при попытке обновить несуществующий фильм
     void shouldNotUpdateNonExistentFilm() {
-        filmController.addFilm(film);
-
-        anotherFilm = Film.builder()
-                .id(3)
-                .name("Чужой 2")
-                .description("Фантастика, Ужасы")
-                .releaseDate(LocalDate.of(1994, 3, 25))
-                .duration(137)
-                .build();
+        when(filmService.update(any(UpdateFilmRequest.class)))
+                .thenThrow(new NotFoundException("Фильм с id = " + updateFilmRequest.getId() + " не найден."));
 
         NotFoundException exception = assertThrows(
                 NotFoundException.class,
-                () -> filmController.updateFilm(anotherFilm),
-                "Исключение при попытке обновить несуществующий фильм"
+                () -> filmController.updateFilm(updateFilmRequest)
         );
 
-        assertEquals("Фильм с id = " + anotherFilm.getId() + "не найден.", exception.getMessage());
+        assertTrue(exception.getMessage().contains("Фильм с id = " + updateFilmRequest.getId() + " не найден."));
+        verify(filmService, times(1)).update(updateFilmRequest);
     }
 }

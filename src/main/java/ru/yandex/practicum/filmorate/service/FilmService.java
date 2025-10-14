@@ -1,24 +1,25 @@
 package ru.yandex.practicum.filmorate.service;
 
-import ru.yandex.practicum.filmorate.model.Film;
-
+import ru.yandex.practicum.filmorate.dto.film.FilmDto;
+import ru.yandex.practicum.filmorate.dto.film.NewFilmRequest;
+import ru.yandex.practicum.filmorate.dto.film.UpdateFilmRequest;
 import java.util.List;
 
 public interface FilmService {
     // Добавление фильма
-    Film create(Film film);
+    FilmDto create(NewFilmRequest request);
 
     // Обновление фильма
-    Film update(Film newFilm);
+    FilmDto update(UpdateFilmRequest request);
 
     // Получение фильма по ID
-    Film get(int id);
+    FilmDto get(int id);
 
     // Получение списка всех фильмов
-    List<Film> getAll();
+    List<FilmDto> getAll();
 
     // Удаление фильма по ID
-    Film delete(int id);
+    void delete(int id);
 
     // Удаление всех фильмов
     void deleteAll();
@@ -30,5 +31,5 @@ public interface FilmService {
     void deleteLike(int id, int userId);
 
     // Получение списка наиболее популярных фильмов по количеству лайков
-    List<Film> getTop(int amount);
+    List<FilmDto> getTop(int amount);
 }

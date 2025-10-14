@@ -1,14 +1,17 @@
 package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.dto.film.FilmDto;
+import ru.yandex.practicum.filmorate.dto.film.NewFilmRequest;
+import ru.yandex.practicum.filmorate.dto.film.UpdateFilmRequest;
 import ru.yandex.practicum.filmorate.service.FilmService;
-
-import java.util.Collection;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -19,33 +22,33 @@ public class FilmController {
     private final FilmService filmService;
 
     @GetMapping
-    public Collection<Film> getFilms() {
+    public List<FilmDto> getFilms() {
         log.info("Выполнение метода getFilms.");
         return filmService.getAll();
     }
 
     @GetMapping("/{id}")
-    public Film getFilm(@PathVariable int id) {
+    public FilmDto getFilm(@PathVariable @Positive int id) {
         log.info("Выполнение метода getFilm.");
         return filmService.get(id);
     }
 
     @PostMapping
-    public Film addFilm(@Valid @RequestBody Film film) {
+    public FilmDto addFilm(@Valid @RequestBody NewFilmRequest request) {
         log.info("Выполнение метода addFilm.");
-        return filmService.create(film);
+        return filmService.create(request);
     }
 
     @PutMapping
-    public Film updateFilm(@Valid @RequestBody Film newFilm) {
+    public FilmDto updateFilm(@Valid @RequestBody UpdateFilmRequest request) {
         log.info("Выполнение метода updateFilm.");
-        return filmService.update(newFilm);
+        return filmService.update(request);
     }
 
     @DeleteMapping("/{id}")
-    public Film deleteFilm(@PathVariable int id) {
+    public void deleteFilm(@PathVariable @Positive int id) {
         log.info("Выполнение метода deleteFilm.");
-        return filmService.delete(id);
+        filmService.delete(id);
     }
 
     @DeleteMapping
@@ -54,20 +57,22 @@ public class FilmController {
         filmService.deleteAll();
     }
 
-    @PutMapping("{id}/like/{userId}")
-    public void addLike(@PathVariable int id, @PathVariable int userId) {
+    @PutMapping("/{id}/like/{userId}")
+    public void addLike(@PathVariable @Positive int id,
+                        @PathVariable @Positive int userId) {
         log.info("Выполнение метода addLike.");
         filmService.addLike(id, userId);
     }
 
-    @DeleteMapping("{id}/like/{userId}")
-    public void deleteLike(@PathVariable int id, @PathVariable int userId) {
+    @DeleteMapping("/{id}/like/{userId}")
+    public void deleteLike(@PathVariable @Positive int id,
+                           @PathVariable @Positive int userId) {
         log.info("Выполнение метода deleteLike.");
         filmService.deleteLike(id, userId);
     }
 
     @GetMapping("/popular")
-    public Collection<Film> getTop(@RequestParam(defaultValue = "10") int amount) {
+    public List<FilmDto> getTop(@RequestParam(defaultValue = "10") @Min(1) int amount) {
         log.info("Выполнение метода getTop.");
         return filmService.getTop(amount);
     }
